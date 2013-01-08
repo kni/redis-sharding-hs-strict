@@ -1,0 +1,6 @@
+Redis Sharding
+**************
+
+This is strict version of Redis Sharding (http://github.com/kni/redis-sharding-hs).
+
+Data.ByteString and attoparsec is used but not Data.ByteString.Lazy.
