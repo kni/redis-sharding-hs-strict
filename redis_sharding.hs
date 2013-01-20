@@ -74,7 +74,6 @@ main = withSocketsDo $ do
 
 welcome c_sock servers timeout = withForkManagerDo $ \fm -> do
 	setSocketOption c_sock KeepAlive 1
-	setSocketOption c_sock NoDelay   1
 
 	addr2sMV <- newMVar [] -- Список пар "server address" => "server socket"
 
@@ -116,7 +115,6 @@ welcome c_sock servers timeout = withForkManagerDo $ \fm -> do
 			ia     <- inet_addr (unpack host)
 			connect s_sock (SockAddrInet port_number ia)
 			setSocketOption s_sock KeepAlive 1
-			setSocketOption s_sock NoDelay   1
 
 			modifyMVar_ addr2sMV (return . (++) [(addr,s_sock)])
 
