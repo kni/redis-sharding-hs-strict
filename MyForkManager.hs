@@ -15,13 +15,9 @@ withForkManagerDo io =
 	where
 		-- Ожидание завержения всех потомкив
 		waitForChildren :: ForkManager -> IO ()
-		waitForChildren (FM fm) = mapM_ (takeMVar . snd) =<< takeMVar fm
+		waitForChildren (FM fm) = mapM_ (takeMVar . snd) =<< readMVar fm
 
 
-waitAllThread :: ForkManager -> IO ()
-waitAllThread (FM fm) = mapM_ (readMVar . snd) =<< readMVar fm
-
- 
 forkWith :: ForkManager -> IO () -> IO ThreadId
 forkWith (FM fm) io = mask $ \restore -> do
  	mvar   <- newEmptyMVar
@@ -30,6 +26,9 @@ forkWith (FM fm) io = mask $ \restore -> do
  	putMVar fm $ (thr_id,mvar):childs
  	return thr_id
 
- 
+
 killAllThread :: ForkManager -> IO ()
-killAllThread (FM fm) = mapM_ (killThread . fst) =<< readMVar fm 
+killAllThread (FM fm) = do
+	my_thr_id <- myThreadId
+	mapM_ killThread . filter (/= my_thr_id) . map fst =<< readMVar fm
+	killThread my_thr_id

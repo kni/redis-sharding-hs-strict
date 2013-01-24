@@ -18,7 +18,7 @@ import Network.Socket hiding (recv)
 
 import MyForkManager
 
-import Network.Socket.ByteString (recv, sendAll)
+import Network.Socket.ByteString (recv)
 
 import RedisSharding
 
@@ -63,7 +63,6 @@ main = withSocketsDo $ do
 
 	sock <- socket AF_INET Stream defaultProtocol
 	setSocketOption sock ReuseAddr 1
-	setSocketOption sock KeepAlive 1
 	bindSocket sock (SockAddrInet port host)
 	listen sock 200
 
@@ -72,7 +71,7 @@ main = withSocketsDo $ do
 	accepter
 
 
-welcome c_sock servers timeout = withForkManagerDo $ \fm -> do
+welcome c_sock servers timeout = do
 	setSocketOption c_sock KeepAlive 1
 
 	addr2sMV <- newMVar [] -- Список пар "server address" => "server socket"
@@ -82,29 +81,38 @@ welcome c_sock servers timeout = withForkManagerDo $ \fm -> do
 
 	-- Получили список пар "server address" => "server socket" после заполнения, дальше он изментся не будет.
 	addr2s <- readMVar addr2sMV
+	let id_addr2s = addr2id addr2s
 
-	quit <- newEmptyMVar
-	let fquit = putMVar quit True >> throw ThreadKilled
+	withForkManagerDo $ \fm -> do
+		let fquit = killAllThread fm
 
-	waitMVar <- newEmptyMVar
-	case timeout > 0 of
-		True  -> forkWithQuit fm fquit (timer waitMVar timeout fquit) >> return ()
-		False -> return ()
+		waitMVar <- newEmptyMVar
+		case timeout > 0 of
+			True  -> forkWithQuit fm fquit (timer waitMVar timeout fquit) >> return ()
+			False -> return ()
 
-	cmds <- newChan      -- Канал для команд
-	let set_cmd c = writeChan cmds c
-	let get_cmd   = getCurrentTime >>= putMVar waitMVar >> readChan cmds >>= \cmd -> takeMVar waitMVar >> return cmd
+		cmds <- newChan -- Канал для команд
+		let set_cmd c = writeChan cmds c
+		let get_cmd   = getCurrentTime >>= putMVar waitMVar >> readChan cmds >>= \cmd -> takeMVar waitMVar >> return cmd
 
-	let c_send s = sendAll c_sock $ concat s
+		toServersMVar <- newEmptyMVar
+		toClientMVar  <- newEmptyMVar
 
-	forkWithQuit fm fquit (_servers_reader c_sock c_send servers addr2s get_cmd fquit)
-	forkWithQuit fm fquit (_client_reader  c_sock c_send servers addr2s set_cmd fquit)
+		forkWithQuit fm fquit (servers_reader c_sock         id_addr2s get_cmd toServersMVar toClientMVar fquit)
+		forkWithQuit fm fquit (client_reader  c_sock servers id_addr2s set_cmd toServersMVar toClientMVar fquit)
 
-	takeMVar quit
-	killAllThread fm >>	waitAllThread fm
+		forkWithQuit fm fquit (servers_sender id_addr2s toServersMVar toClientMVar fquit)
+		forkWithQuit fm fquit (client_sender  c_sock toServersMVar toClientMVar fquit)
+
+		return ()
+
 	clean_from_client c_sock addr2sMV
 
 	where
+
+		addr2id :: [(ByteString, Socket)] -> [(Int, Socket)]
+		addr2id addr2s = fst $ foldr (\(_,s) (b,i) -> let i' = i + 1 in ((i',s):b,i')) ([],0) addr2s
+
 		clean_from_client c_sock addr2sMV = do
 			takeMVar addr2sMV >>= return . map snd >>= mapM_ sClose
 			sClose c_sock
@@ -135,18 +143,3 @@ welcome c_sock servers timeout = withForkManagerDo $ \fm -> do
 			case d < timeout of
 				True  -> threadDelay (1000000 * d) >> timer waitMVar timeout fquit
 				False -> fquit
-
-
-		_client_reader c_sock c_send servers addr2s set_cmd fquit =
-			client_reader c_recv c_send servers s_send set_cmd fquit
-			where
-				c_recv = recv c_sock (32 * 1024)
-				s_send s_addr s = sendAll (fromJust $ lookup s_addr addr2s) $ concat s
-
-
-		_servers_reader c_sock c_send servers addr2s get_cmd fquit = do
-			sss <- forM addr2s (\(s_addr, s_sock) -> do
-						let s_recv = recv s_sock (32 * 1024)
-						return (s_addr, s_sock, s_recv)
-					)
-			servers_reader c_send sss get_cmd fquit

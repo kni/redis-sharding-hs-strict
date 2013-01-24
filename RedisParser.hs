@@ -20,6 +20,7 @@ import Data.Attoparsec
 import Data.Attoparsec.ByteString.Char8 hiding (takeTill)
 import qualified Data.Attoparsec.ByteString.Char8 as P8
 
+import qualified MyListBuf as LB
 
 showInt :: Int64 -> ByteString
 showInt a = S.pack $ show a
@@ -84,12 +85,15 @@ parseWithNext p s next = rcase $ parse p s
 
 
 -- Преобразование команды (список аргументов) в строку, поток байтов, соответствующий протоколу redis.
-cmd2stream :: [Maybe ByteString] -> [ByteString]
-cmd2stream [] = ["*0\r\n"]
-cmd2stream as = ["*", (showInt $ fromIntegral $ length as), "\r\n"] ++ concat (map arg2stream as)
+cmd2stream :: [Maybe ByteString] -> LB.ListBuf
+cmd2stream [] = LB.pack ["*0\r\n"]
+cmd2stream as = LB.appendL h t
+	where
+	h = LB.pack ["*", (showInt $ fromIntegral $ length as), "\r\n"]
+	t = map arg2stream as
 
 
 -- Преобразование аргумента в строку, поток байтов, соответствующий протоколу redis.
-arg2stream :: Maybe ByteString -> [ByteString]
-arg2stream Nothing  = ["$-1\r\n"]
-arg2stream (Just s) = ["$", (showInt $ fromIntegral $ S.length s), "\r\n", s, "\r\n"]
+arg2stream :: Maybe ByteString -> LB.ListBuf
+arg2stream Nothing  = LB.pack ["$-1\r\n"]
+arg2stream (Just s) = LB.pack ["$", (showInt $ fromIntegral $ S.length s), "\r\n", s, "\r\n"]

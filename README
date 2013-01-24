@@ -3,6 +3,6 @@ Redis Sharding
 
 This is Strict version of Redis Sharding (http://github.com/kni/redis-sharding-hs).
 
-Data.ByteString and attoparsec is used but not Data.ByteString.Lazy.
+Strict version faster in 4 time for Pipeline mode!
 
-Strict version usually faster by 20% but only for small data.
+Data.ByteString and attoparsec is used, but not Data.ByteString.Lazy.
