@@ -1,8 +1,117 @@
 Redis Sharding
 **************
 
-This is Strict version of Redis Sharding (http://github.com/kni/redis-sharding-hs).
 
-Strict version faster in 4 time for Pipeline mode!
+Sharding
+--------
 
-Data.ByteString and attoparsec is used, but not Data.ByteString.Lazy.
+https://github.com/kni/redis-sharding-hs-strict
+
+Redis Sharding is a multiplexed proxy-server, designed to work with the database divided to several servers.
+It's a temporary substitution of Redis Cluster (http://redis.io) that is under development.
+
+Redis Sharding is used for horizontal Redis database scaling (with connecting of additional servers) as long as load distribution between the cores on the multiprocessor servers (as Redis server is single-threaded, several copies of the server can be run, one for each free core).
+
+                              /- Redis (node 1)
+ Client 1 ---                /-- Redis (node 2)
+              Redis Sharding --- Redis (node 3)
+ Client 2 ---                \-- Redis (node 4)
+                              \- Redis (node 5)
+
+Sharding is done based on the CRC32 checksum of a key or key tag ("key{key_tag}").
+
+The majority of the commands are supported except the key renaming commands, 
+commands of working with sets, transactions, subscription and, of course, server configure. 
+
+Redis Sharding with fully support MSET, MSETNX, MGET, DEL commands.
+
+For BLPOP and BRPOP commands all the keys should be on one node, that is done with the key tag.
+Also for this commands Redis timeout 0 is recommended. 
+
+
+Versions
+--------
+
+Strict Haskell version http://github.com/kni/redis-sharding-hs-strict
+Lazy   Haskell version http://github.com/kni/redis-sharding-hs
+Perl version           http://github.com/kni/redis-sharding
+
+Strict Haskell version is the best of them all!
+
+Nota bene
+---------
+
+To achieve the best efficiency while sharding data it is especially important to use pipelining by the client.
+The importance increases according to the number of node for multikeys commands (multi-nodes commands, if more precisely).
+And it increases twice only in comparison with the usual redis server. :-)
+
+
+Some benchmarks
+---------------
+
+http://by-need.blogspot.com/2013/01/redis-set-vs-mset-sharding-twemproxy-vs.html
+
+http://by-need.blogspot.com/2013/01/redissharding-benchmark.html
+
+
+Build
+-----
+
+	ghc -threaded -rtsopts -O2 -feager-blackholing --make redis_sharding.hs
+	or
+	cabal configure && cabal build
+
+Run
+-----
+
+	./redis_sharding --nodes=10.1.1.1:6380,10.1.1.1:6381,...
+
+Others parameters:
+
+	--host=10.1.1.1
+	--port=6379
+	--timeout=300 (0 - disable timeout, seconds)
+
+To use all CPU core run as
+
+	./redis_sharding --nodes=10.1.1.1:6380,10.1.1.1:6381,... +RTS -N
+
+ATTENTION! +RTS -N must be after of all others parameters. To use 4 CPU core: -N4
+
+
+Tuning
+------
+	
+	./redis_sharding --nodes=10.1.1.1:6380,10.1.1.1:6381,... +RTS -N -A10M -qa
+
+-Nx - Use x simultaneous threads when running the program.
+-A  - Set the allocation area size used by the garbage collector
+-qa - Use the OS's affinity facilities to try to pin OS threads to CPU cores.
+      This is an experimental feature, and may or may not be useful. 
+
+
+Resharding
+----------
+
+http://github.com/kni/redis-sharding
+
+Cluster configuration change on the fly is not supported. We are looking forward for Redis Cluster release. 
+
+To copy data to a new cluster use a new utility resharding.pl.
+
+For example, there is a cluster consisting of two servers: A1 and A2. It is served with redis_sharding, that is launched as
+
+ perl redis_sharding.pl --nodes=A1,A2
+
+We want to copy data from the base 9 to a new cluster of 5 servers: B1, B2, B3, B4 and B5.
+
+To do this we need to stop redis_sharding.pl and run resharding.pl for each server of the cluster: 
+
+ perl resharding.pl --db=9 --from=A1 --nodes=B1,B2,B3,B4,B5
+ perl resharding.pl --db=9 --from=A2 --nodes=B1,B2,B3,B4,B5
+
+After copying have been done, run redis_sharding.pl for a new cluster: 
+
+perl redis_sharding.pl --nodes=B1,B2,B3,B4,B5
+
+If a flag --flushdb is set, the FLUSHDB command is sent to all cluster nodes before data copying.
