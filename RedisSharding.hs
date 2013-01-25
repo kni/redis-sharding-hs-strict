@@ -44,7 +44,7 @@ recv_size = 32 * 1024
 
 key2server key servers = i + 1
 	where
-		i = fromIntegral $ (toInteger $ crc32 $ key_tag key) `rem` (toInteger $ length servers)
+		i = fromIntegral $ (toInteger $ crc32 $ key_tag key) `rem` (toInteger servers)
 
 		key_tag ""  = ""
 		key_tag key =
@@ -66,26 +66,16 @@ cmd_type =
 
 
 
--- client_reader :: Socket
--- 	-> [ByteString]
--- 	-> [(ByteString, Socket)]
--- 	-> ((ByteString, [ByteString]) -> IO ())
--- 	-> MVar a
--- 	-> MVar b
--- 	-> IO ()
--- 	-> IO ()
-
-client_reader c_sock servers addr2s set_cmd toServersMVar toClientMVar fquit = parseWithNext multi_bulk_parser "" c_recv >>= rf
-	-- ToDo можно уделить addr2s
-	-- ToDo servers - это уже только для servers_count
+client_reader :: Socket -> Int -> (RCmd -> IO a) -> MVar Msg -> MVar Msg -> IO () -> IO ()
+client_reader c_sock s_count set_cmd toServersMVar toClientMVar fquit = parseWithNext multi_bulk_parser "" c_recv >>= rf
 	where
 
 		c_recv = recv c_sock recv_size
-		c_send s = sendAll c_sock $ B.concat s
+		c_send s = putMVar toClientMVar (MsgData s)
 		s_send s_addr s = putMVar toServersMVar (MsgDataTo s_addr s)
 
 		rf (Left  ("", e)) = fquit
-		rf (Left  (t, e))  = c_send ["-ERR unified protocol error\r\n"]
+		rf (Left  (t, e))  = c_send $ LB.pack ["-ERR unified protocol error\r\n"]
 		rf (Right (t, r))  = case r of
 			Just as@((Just cmd):args) -> do
 				case lookup cmd cmd_type of
@@ -95,12 +85,12 @@ client_reader c_sock servers addr2s set_cmd toServersMVar toClientMVar fquit = p
 						s_send 0 cs
 					Just 2 -> do -- На конкретные сервер
 						let (Just key):_ = args
-						let s_addr = key2server key servers
+						let s_addr = key2server key s_count
 						set_cmd (RCmd cmd [s_addr])
 						let cs = cmd2stream as
 						s_send s_addr cs
 					Just 3 -> do -- На множество серверов. CMD key1 key2 ... keyN
-						let arg_and_s_addr = map (\arg -> (arg, key2server (fromJust arg) servers)) args
+						let arg_and_s_addr = map (\arg -> (arg, key2server (fromJust arg) s_count)) args
 						let s_addrs = map snd arg_and_s_addr
 						let uniq_s_addrs = L.nub s_addrs
 						set_cmd (RCmd cmd s_addrs)
@@ -110,7 +100,7 @@ client_reader c_sock servers addr2s set_cmd toServersMVar toClientMVar fquit = p
 								s_send s_addr cs
 							) uniq_s_addrs
 					Just 4 -> do -- На множество серверов. CMD key1 value1 key2 value2 ... keyN valueN
-						let arg_and_s_addr = map (\(k, v) -> ((k, v), key2server (fromJust k) servers)) $ to_pair args
+						let arg_and_s_addr = map (\(k, v) -> ((k, v), key2server (fromJust k) s_count)) $ to_pair args
 						let s_addrs = map snd arg_and_s_addr
 						let uniq_s_addrs = L.nub s_addrs
 						set_cmd (RCmd cmd s_addrs)
@@ -125,11 +115,11 @@ client_reader c_sock servers addr2s set_cmd toServersMVar toClientMVar fquit = p
 							to_pair (a:b:l) = (a,b):to_pair l
 					Just 5 -> do -- На множество серверов. CMD key1 key2 ... keyN timeout (блокирующие команды)
 						let timeout = last args
-						let arg_and_s_addr = map (\arg -> (arg, key2server (fromJust arg) servers)) $ init args
+						let arg_and_s_addr = map (\arg -> (arg, key2server (fromJust arg) s_count)) $ init args
 						let s_addrs = map snd arg_and_s_addr
 						let uniq_s_addrs = L.nub s_addrs
 						case length uniq_s_addrs == 1 of
-							False -> c_send ["-ERR Keys of the '", cmd, "' command should be on one node; use key tags\r\n"]
+							False -> c_send $ LB.pack ["-ERR Keys of the '", cmd, "' command should be on one node; use key tags\r\n"]
 							True  -> do
 								set_cmd (RCmd cmd s_addrs)
 								mapM_ (\s_addr -> do
@@ -138,7 +128,7 @@ client_reader c_sock servers addr2s set_cmd toServersMVar toClientMVar fquit = p
 										s_send s_addr cs
 									) uniq_s_addrs
 					Nothing -> do
-						c_send ["-ERR unsupported command '", cmd, "'\r\n"]
+						c_send $ LB.pack ["-ERR unsupported command '", cmd, "'\r\n"]
 
 				when (t == "") $ putMVar toServersMVar MsgFlush
 
@@ -147,7 +137,7 @@ client_reader c_sock servers addr2s set_cmd toServersMVar toClientMVar fquit = p
 
 
 
-servers_sender addr2s toServersMVar toClientMVar fquit = go resp_empty
+servers_sender addr2s toServersMVar fquit = go resp_empty
 	where
 	go resp = do
 		msg <- takeMVar toServersMVar
@@ -184,15 +174,15 @@ servers_sender addr2s toServersMVar toClientMVar fquit = go resp_empty
 
 
 
--- servers_reader :: Socket -> [(ByteString, Socket)] -> IO (ByteString, [ByteString]) -> MVar a -> MVar b -> IO () -> IO ()
-servers_reader c_sock addr2s get_cmd toServersMVar toClientMVar fquit = servers_loop sss
+servers_reader :: Socket -> [(Int, Socket)] -> IO RCmd -> MVar Msg -> IO () -> IO ()
+servers_reader c_sock addr2s get_cmd toClientMVar fquit = servers_loop sss
 	where
 	sss = map ( \(s_addr, s_sock) -> let s_recv = recv s_sock recv_size in (s_addr, s_sock, s_recv, "") ) addr2s
 	servers_loop sss = server_responses get_cmd sss toClientMVar fquit >>= servers_loop
 
 
 
-client_sender c_sock toServersMVar toClientMVar fquit = go LB.empty
+client_sender c_sock toClientMVar fquit = go LB.empty
 	where
 	c_send resp = sendAll c_sock s
 		where s = LB.toByteString resp

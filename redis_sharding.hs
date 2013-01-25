@@ -83,6 +83,8 @@ welcome c_sock servers timeout = do
 	addr2s <- readMVar addr2sMV
 	let id_addr2s = addr2id addr2s
 
+	let s_count = length servers
+
 	withForkManagerDo $ \fm -> do
 		let fquit = killAllThread fm
 
@@ -98,11 +100,11 @@ welcome c_sock servers timeout = do
 		toServersMVar <- newEmptyMVar
 		toClientMVar  <- newEmptyMVar
 
-		forkWithQuit fm fquit (servers_reader c_sock         id_addr2s get_cmd toServersMVar toClientMVar fquit)
-		forkWithQuit fm fquit (client_reader  c_sock servers id_addr2s set_cmd toServersMVar toClientMVar fquit)
+		forkWithQuit fm fquit (servers_reader c_sock         id_addr2s get_cmd               toClientMVar fquit)
+		forkWithQuit fm fquit (client_reader  c_sock s_count           set_cmd toServersMVar toClientMVar fquit)
 
-		forkWithQuit fm fquit (servers_sender id_addr2s toServersMVar toClientMVar fquit)
-		forkWithQuit fm fquit (client_sender  c_sock toServersMVar toClientMVar fquit)
+		forkWithQuit fm fquit (servers_sender id_addr2s toServersMVar fquit)
+		forkWithQuit fm fquit (client_sender  c_sock    toClientMVar  fquit)
 
 		return ()
 
