@@ -71,7 +71,7 @@ client_reader c_sock s_count set_cmd toServersMVar toClientMVar fquit = parseWit
 	where
 
 		c_recv = recv c_sock recv_size
-		c_send s = putMVar toClientMVar (MsgData s)
+		c_send s = putMVar toClientMVar (MsgData s) >> putMVar toClientMVar MsgFlush
 		s_send s_addr s = putMVar toServersMVar (MsgDataTo s_addr s)
 
 		rf (Left  ("", e)) = fquit
