@@ -6,6 +6,7 @@ module RedisSharding (
 
 
 import Control.Monad (when)
+import Data.Char (toUpper)
 import Data.Int (Int64)
 import Data.Digest.CRC32 (crc32)
 import Data.Maybe (fromJust)
@@ -77,7 +78,8 @@ client_reader c_sock s_count set_cmd toServersMVar toClientMVar fquit = parseWit
 		rf (Left  ("", e)) = fquit
 		rf (Left  (t, e))  = c_send $ LB.pack ["-ERR unified protocol error\r\n"]
 		rf (Right (t, r))  = case r of
-			Just as@((Just cmd):args) -> do
+			Just as@((Just c):args) -> do
+				let cmd = B.pack $ map toUpper (B.unpack c)
 				case lookup cmd cmd_type of
 					Just 1 -> do -- На все сервера
 						set_cmd (RCmd cmd [])
