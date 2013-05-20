@@ -31,7 +31,7 @@ import qualified MyListBuf as LB
 
 data Msg = MsgFlush | MsgData !LB.ListBuf | MsgDataTo {-# UNPACK #-} !Int !LB.ListBuf
 
-data RCmd = RCmd !ByteString ![Int] -- Имя команды и на какие сервера послали конкретные данные 
+data RCmd = RCmd !ByteString ![Int] -- п≤п╪я▐ п╨п╬п╪п╟п╫п╢я▀ п╦ п╫п╟ п╨п╟п╨п╦п╣ я│п╣я─п╡п╣я─п╟ п©п╬я│п╩п╟п╩п╦ п╨п╬п╫п╨я─п╣я┌п╫я▀п╣ п╢п╟п╫п╫я▀п╣ 
 
 
 warn = B.hPutStrLn stderr . B.concat
@@ -81,17 +81,17 @@ client_reader c_sock s_count set_cmd toServersMVar toClientMVar fquit = parseWit
 			Just as@((Just c):args) -> do
 				let cmd = B.pack $ map toUpper (B.unpack c)
 				case lookup cmd cmd_type of
-					Just 1 -> do -- На все сервера
+					Just 1 -> do -- п²п╟ п╡я│п╣ я│п╣я─п╡п╣я─п╟
 						set_cmd (RCmd cmd [])
 						let cs = cmd2stream as
 						s_send 0 cs
-					Just 2 -> do -- На конкретные сервер
+					Just 2 -> do -- п²п╟ п╨п╬п╫п╨я─п╣я┌п╫я▀п╣ я│п╣я─п╡п╣я─
 						let (Just key):_ = args
 						let s_addr = key2server key s_count
 						set_cmd (RCmd cmd [s_addr])
 						let cs = cmd2stream as
 						s_send s_addr cs
-					Just 3 -> do -- На множество серверов. CMD key1 key2 ... keyN
+					Just 3 -> do -- п²п╟ п╪п╫п╬п╤п╣я│я┌п╡п╬ я│п╣я─п╡п╣я─п╬п╡. CMD key1 key2 ... keyN
 						let arg_and_s_addr = map (\arg -> (arg, key2server (fromJust arg) s_count)) args
 						let s_addrs = map snd arg_and_s_addr
 						let uniq_s_addrs = L.nub s_addrs
@@ -101,7 +101,7 @@ client_reader c_sock s_count set_cmd toServersMVar toClientMVar fquit = parseWit
 								let cs = cmd2stream $ concat [[Just cmd],_args]
 								s_send s_addr cs
 							) uniq_s_addrs
-					Just 4 -> do -- На множество серверов. CMD key1 value1 key2 value2 ... keyN valueN
+					Just 4 -> do -- п²п╟ п╪п╫п╬п╤п╣я│я┌п╡п╬ я│п╣я─п╡п╣я─п╬п╡. CMD key1 value1 key2 value2 ... keyN valueN
 						let arg_and_s_addr = map (\(k, v) -> ((k, v), key2server (fromJust k) s_count)) $ to_pair args
 						let s_addrs = map snd arg_and_s_addr
 						let uniq_s_addrs = L.nub s_addrs
@@ -115,7 +115,7 @@ client_reader c_sock s_count set_cmd toServersMVar toClientMVar fquit = parseWit
 						where
 							to_pair []      = []
 							to_pair (a:b:l) = (a,b):to_pair l
-					Just 5 -> do -- На множество серверов. CMD key1 key2 ... keyN timeout (блокирующие команды)
+					Just 5 -> do -- п²п╟ п╪п╫п╬п╤п╣я│я┌п╡п╬ я│п╣я─п╡п╣я─п╬п╡. CMD key1 key2 ... keyN timeout (п╠п╩п╬п╨п╦я─я┐я▌я┴п╦п╣ п╨п╬п╪п╟п╫п╢я▀)
 						let timeout = last args
 						let arg_and_s_addr = map (\arg -> (arg, key2server (fromJust arg) s_count)) $ init args
 						let s_addrs = map snd arg_and_s_addr
@@ -170,7 +170,7 @@ servers_sender addr2s toServersMVar fquit = go resp_empty
 					s_send _s_sock r'
 					return (_s_addr, _s_sock, LB.empty)
 				False -> return (_s_addr, _s_sock, r')
-			-- ToDo send, если размер. А может  если буфер пуст, то не пытаться складывать с пустотой, а сразу отсылать или вставлять.
+			-- ToDo send, п╣я│п╩п╦ я─п╟п╥п╪п╣я─. п░ п╪п╬п╤п╣я┌  п╣я│п╩п╦ п╠я┐я└п╣я─ п©я┐я│я┌, я┌п╬ п╫п╣ п©я▀я┌п╟я┌я▄я│я▐ я│п╨п╩п╟п╢я▀п╡п╟я┌я▄ я│ п©я┐я│я┌п╬я┌п╬п╧, п╟ я│я─п╟п╥я┐ п╬я┌я│я▀п╩п╟я┌я▄ п╦п╩п╦ п╡я│я┌п╟п╡п╩я▐я┌я▄.
 		go x = return x
 
 
@@ -231,19 +231,19 @@ server_responses get_cmd sss toClientMVar fquit = do
 			let ((_,fr):_) = rs
 			case fr of
 				RInt fr -> do
-					-- Числовой ответ складываем.
+					-- п╖п╦я│п╩п╬п╡п╬п╧ п╬я┌п╡п╣я┌ я│п╨п╩п╟п╢я▀п╡п╟п╣п╪.
 					let sm = sum $ map (\(RInt r) -> r) (map snd rs)
 					c_send $ LB.pack [":", showInt sm, "\r\n"]
 					return sss
 
 				RInline fr -> do
 					case any (== fr) $ map ( \(RInline r) -> r) (map snd rs) of
-						True  -> c_send $ LB.pack [fr, "\r\n"] -- Ответы идентичны.
-						False -> c_send $ LB.pack ["-ERR nodes return different results\r\n"] -- Ответы отличаются.
+						True  -> c_send $ LB.pack [fr, "\r\n"] -- п·я┌п╡п╣я┌я▀ п╦п╢п╣п╫я┌п╦я┤п╫я▀.
+						False -> c_send $ LB.pack ["-ERR nodes return different results\r\n"] -- п·я┌п╡п╣я┌я▀ п╬я┌п╩п╦я┤п╟я▌я┌я│я▐.
 					return sss
 
 				RBulk fmr -> do
-					-- Кажется все эти команды должны быть с одного сервера.
+					-- п п╟п╤п╣я┌я│я▐ п╡я│п╣ я█я┌п╦ п╨п╬п╪п╟п╫п╢я▀ п╢п╬п╩п╤п╫я▀ п╠я▀я┌я▄ я│ п╬п╢п╫п╬пЁп╬ я│п╣я─п╡п╣я─п╟.
 					let (Just ctype) = lookup cmd cmd_type
 					case ctype == 2 of
 						False -> warn ["bulk cmd ", cmd, " with ", showInt ctype, " != 2"]
@@ -258,14 +258,14 @@ server_responses get_cmd sss toClientMVar fquit = do
 							case sm > 0 of
 								False -> return sss
 								True  -> case length ss of
-									0         -> read_loop sss $ spiral rs -- Со всех нод все
-									1         -> read_loop sss $ spiral rs -- С одной ноды все
-									otherwise -> read_loop sss ss          -- С каждого упоминание нод по одному
+									0         -> read_loop sss $ spiral rs -- п║п╬ п╡я│п╣я┘ п╫п╬п╢ п╡я│п╣
+									1         -> read_loop sss $ spiral rs -- п║ п╬п╢п╫п╬п╧ п╫п╬п╢я▀ п╡я│п╣
+									otherwise -> read_loop sss ss          -- п║ п╨п╟п╤п╢п╬пЁп╬ я┐п©п╬п╪п╦п╫п╟п╫п╦п╣ п╫п╬п╢ п©п╬ п╬п╢п╫п╬п╪я┐
 
 							where
 								sm = sum $ map (\(RMultiSize r) -> r) (map snd rs)
 
-								-- Спираль, по одному с каждого и так до конца (челнок). Не удаляй ленивость.
+								-- п║п©п╦я─п╟п╩я▄, п©п╬ п╬п╢п╫п╬п╪я┐ я│ п╨п╟п╤п╢п╬пЁп╬ п╦ я┌п╟п╨ п╢п╬ п╨п╬п╫я├п╟ (я┤п╣п╩п╫п╬п╨). п²п╣ я┐п╢п╟п╩я▐п╧ п╩п╣п╫п╦п╡п╬я│я┌я▄.
 								-- print $ take 5 $ spiral [ ("a", 3), ("b", 4), ("c", 2), ("d", 0) ]
 								spiral a = go a []
 									where

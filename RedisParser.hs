@@ -84,7 +84,7 @@ parseWithNext p s next = rcase $ parse p s
 
 
 
--- Преобразование команды (список аргументов) в строку, поток байтов, соответствующий протоколу redis.
+-- п÷я─п╣п╬п╠я─п╟п╥п╬п╡п╟п╫п╦п╣ п╨п╬п╪п╟п╫п╢я▀ (я│п©п╦я│п╬п╨ п╟я─пЁя┐п╪п╣п╫я┌п╬п╡) п╡ я│я┌я─п╬п╨я┐, п©п╬я┌п╬п╨ п╠п╟п╧я┌п╬п╡, я│п╬п╬я┌п╡п╣я┌я│я┌п╡я┐я▌я┴п╦п╧ п©я─п╬я┌п╬п╨п╬п╩я┐ redis.
 cmd2stream :: [Maybe ByteString] -> LB.ListBuf
 cmd2stream [] = LB.pack ["*0\r\n"]
 cmd2stream as = LB.appendL h t
@@ -93,7 +93,7 @@ cmd2stream as = LB.appendL h t
 	t = map arg2stream as
 
 
--- Преобразование аргумента в строку, поток байтов, соответствующий протоколу redis.
+-- п÷я─п╣п╬п╠я─п╟п╥п╬п╡п╟п╫п╦п╣ п╟я─пЁя┐п╪п╣п╫я┌п╟ п╡ я│я┌я─п╬п╨я┐, п©п╬я┌п╬п╨ п╠п╟п╧я┌п╬п╡, я│п╬п╬я┌п╡п╣я┌я│я┌п╡я┐я▌я┴п╦п╧ п©я─п╬я┌п╬п╨п╬п╩я┐ redis.
 arg2stream :: Maybe ByteString -> LB.ListBuf
 arg2stream Nothing  = LB.pack ["$-1\r\n"]
 arg2stream (Just s) = LB.pack ["$", (showInt $ fromIntegral $ S.length s), "\r\n", s, "\r\n"]
