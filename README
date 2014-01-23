@@ -28,6 +28,7 @@ Redis Sharding with fully support MSET, MSETNX, MGET, DEL commands.
 For BLPOP and BRPOP commands all the keys should be on one node, that is done with the key tag.
 Also for this commands Redis timeout 0 is recommended. 
 
+For SUBSCRIBE, UNSUBSCRIBE and PUBLISH commands Redis timeout 0 is recommended.
 
 Versions
 --------
