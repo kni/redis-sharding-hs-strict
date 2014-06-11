@@ -58,6 +58,9 @@ http://by-need.blogspot.com/2013/01/redissharding-benchmark.html
 Build
 -----
 
+ATTENTION! I would recommend using ghc7.8 which includes the new IO manager. 
+This productivity in 1.8 - 1.9 times (http://by-need.blogspot.com/2014/06/mio-benchmark-ghc-78.html).
+
 	ghc -threaded -rtsopts -O2 -feager-blackholing --make redis_sharding.hs
 	or
 	cabal configure && cabal build
@@ -73,11 +76,11 @@ Others parameters:
 	--port=6379
 	--timeout=300 (0 - disable timeout, seconds)
 
-To use all CPU core run as
+To use x CPU core run as
 
-	./redis_sharding --nodes=10.1.1.1:6380,10.1.1.1:6381,... +RTS -N
+	./redis_sharding --nodes=10.1.1.1:6380,10.1.1.1:6381,... +RTS -Nx
 
-ATTENTION! +RTS -N must be after of all others parameters. To use 4 CPU core: -N4
+ATTENTION! +RTS -Nx must be after of all others parameters. To use 4 CPU core: -N4
 
 
 Tuning
