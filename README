@@ -86,7 +86,7 @@ ATTENTION! +RTS -Nx must be after of all others parameters. To use 4 CPU core: -
 Tuning
 ------
 	
-	./redis_sharding --nodes=10.1.1.1:6380,10.1.1.1:6381,... +RTS -N -A10M -qa
+	./redis_sharding --nodes=10.1.1.1:6380,10.1.1.1:6381,... +RTS -Nx -A10M -qa
 
 -Nx - Use x simultaneous threads when running the program.
 -A  - Set the allocation area size used by the garbage collector
