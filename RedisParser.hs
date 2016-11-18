@@ -7,6 +7,7 @@ module RedisParser (
 ) where
 
 
+import System.IO.Unsafe
 import Prelude hiding (take)
 
 import Data.Int (Int64)
@@ -14,32 +15,31 @@ import Data.Int (Int64)
 import           Data.ByteString.Char8 (ByteString)
 import qualified Data.ByteString.Char8 as S
 
-
 import Control.Applicative
-import Data.Attoparsec.ByteString
-import Data.Attoparsec.ByteString.Char8 hiding (takeTill)
-import qualified Data.Attoparsec.ByteString.Char8 as P8
 
+import Sparcl
 import qualified MyListBuf as LB
 
 showInt :: Int64 -> ByteString
 showInt a = S.pack $ show a
 
 
-get_bulk_size :: Char -> Parser Int64
-get_bulk_size c = char c *> signed decimal <* endOfLine
+endOfLine = takeStr "\r\n"
+
+get_bulk_size :: ByteString -> Parser Int64
+get_bulk_size c = takeStr c *> fmap fromIntegral takeInteger <* endOfLine
 
 
 get_bulk_value :: Int64 -> Parser (Maybe ByteString)
 get_bulk_value (-1) = return Nothing
-get_bulk_value n    = Just <$> take (fromIntegral n) <* endOfLine
+get_bulk_value n    = Just <$> takeN (fromIntegral n) <* endOfLine
 
 get_bulk_arg :: Parser (Maybe ByteString)
-get_bulk_arg = get_bulk_size '$' >>= get_bulk_value
+get_bulk_arg = get_bulk_size "$" >>= get_bulk_value
 
 
 multi_bulk_parser:: Parser (Maybe [Maybe ByteString])
-multi_bulk_parser = get_bulk_size '*' >>=get_args []
+multi_bulk_parser = get_bulk_size "*" >>=get_args []
 	where
 		get_args :: [Maybe ByteString] -> Int64 -> Parser (Maybe [Maybe ByteString])
 		get_args as (-1) = return Nothing
@@ -55,32 +55,35 @@ server_parser :: Parser Reply
 server_parser = choice [line, integer, bulk, multi_bulk_size]
 	where
 		line            = RInline    <$> do 
-											h <- choice[char '+', char '-']
-											t <- takeTill isEndOfLine
+											h <- choice[takeStr "+", takeStr "-"]
+											t <- takeBefore "\r\n"
 											endOfLine
-											return $ S.cons h t
-		integer         = RInt       <$> do char ':' *> signed decimal <* endOfLine
+											return $ S.concat [h, t]
+		integer         = RInt       <$> do takeStr ":" *> fmap fromIntegral takeInteger <* endOfLine
 		bulk            = RBulk      <$> get_bulk_arg
-		multi_bulk_size = RMultiSize <$> get_bulk_size '*'
+		multi_bulk_size = RMultiSize <$> get_bulk_size "*"
 
 
 server_parser_multi = RBulk <$> get_bulk_arg
 
 
+trace :: ByteString -> a -> a
+trace string expr = unsafePerformIO $ S.putStrLn string >> return expr
+
 
 parseWithNext :: Monad m => Parser a -> ByteString -> m ByteString -> m (Either (ByteString, String) (ByteString, a))
-parseWithNext p s next = rcase $ parse p s
+parseWithNext p s next = go s
 	where
-	rcase r = case r of
-		Fail t c e     -> return $ Left (t, e)
-		r@(Partial _)  -> go r
-		Done t r       -> return $ Right (t, r)
+	go s = case parse p s of
+		Done r t  -> return $ Right (t, r)
+		Fail      -> return $ Left (s, "Parsing Error")
+		Partial   -> goP s
 
-	go r = do
+	goP s0 = do
 		s <- next
 		case s of
 			"" -> return $ Left ("", "The End")
-			s  -> rcase $ feed r s
+			s  -> go ( S.concat[s0, s] )
 
 
 
