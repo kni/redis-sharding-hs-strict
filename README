@@ -39,6 +39,11 @@ Perl version           http://github.com/kni/redis-sharding
 
 Strict Haskell version is the best of them all!
 
+Strict Haskell version have two subversion: 1 is on base Attoparsec (master); 2 is on base Sparcl (branch sparcl).
+Sparcl - Small Parser Combinator Library for Standard ML (MLton, Poly/ML), Haskell: https://github.com/kni/sparcl .
+Sparcl version of Redis Sharding faster on 7-9% than Attoparsec version.
+
+
 Nota bene
 ---------
 
