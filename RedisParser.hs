@@ -16,7 +16,7 @@ import qualified Data.ByteString.Char8 as S
 
 
 import Control.Applicative
-import Data.Attoparsec
+import Data.Attoparsec.ByteString
 import Data.Attoparsec.ByteString.Char8 hiding (takeTill)
 import qualified Data.Attoparsec.ByteString.Char8 as P8
 

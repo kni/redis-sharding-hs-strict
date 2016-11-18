@@ -15,7 +15,8 @@ Library
     network    >= 2.3,
     digest,
     time,
-    attoparsec
+    attoparsec,
+    old-locale
 
 Executable     redis_sharding
   main-is:     redis_sharding.hs

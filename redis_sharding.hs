@@ -10,6 +10,7 @@ import Data.ByteString.Char8 (ByteString, pack, unpack, split, concat)
 import Data.Maybe (maybe, fromJust)
 import Data.Time.Clock
 import Data.Tuple (fst, snd)
+import System.IO
 import System.Posix.Signals
 import System.Environment (getArgs, getProgName)
 import System.Console.GetOpt
@@ -22,6 +23,8 @@ import Network.Socket.ByteString (recv)
 
 import RedisSharding
 
+
+version = "1.0"
 
 
 options :: [OptDescr (String, String)]
@@ -39,6 +42,10 @@ options = [
 
 main = withSocketsDo $ do
 	installHandler sigPIPE Ignore Nothing
+
+	hSetBuffering stdout LineBuffering
+
+	printLog ["Start RedisSharding, (version - ", version, " strict)."]
 
 	argv <- getArgs
 
@@ -77,7 +84,7 @@ welcome c_sock servers timeout = do
 	addr2sMV <- newMVar [] -- Список пар "server address" => "server socket"
 
 	catch (forM_ servers (server c_sock addr2sMV))
-		(\e -> print (e::SomeException) >> clean_from_client c_sock addr2sMV)
+		(\e -> printLog [ pack (show (e::SomeException) ) ] >> clean_from_client c_sock addr2sMV)
 
 	-- Получили список пар "server address" => "server socket" после заполнения, дальше он изментся не будет.
 	addr2s <- readMVar addr2sMV

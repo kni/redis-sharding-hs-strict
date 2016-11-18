@@ -1,7 +1,9 @@
 {-# LANGUAGE OverloadedStrings, BangPatterns  #-}
+{-# LANGUAGE CPP #-}
 
 module RedisSharding (
 	client_reader, servers_reader, client_sender, servers_sender
+	, printLog
 ) where
 
 
@@ -20,18 +22,35 @@ import qualified Data.ByteString.Char8 as B
 import Network.Socket (Socket)
 import Network.Socket.ByteString (recv, sendAll)
 
-import Data.Attoparsec
-
 import Control.Concurrent.MVar (MVar, putMVar, takeMVar)
 
 import RedisParser
 
+
+import Data.Time.Clock (getCurrentTime)
+#if MIN_VERSION_time(1,5,0)
+import Data.Time.Format (formatTime, defaultTimeLocale)
+#else
+import Data.Time.Format (formatTime)
+import System.Locale (defaultTimeLocale)
+#endif
+
 import qualified MyListBuf as LB
+
+
+formatDataTime t =  B.pack $ formatTime defaultTimeLocale "%Y-%m-%d %H:%M:%S" t
+
+
+printLog s = do
+	t <- getCurrentTime
+	B.putStrLn $ B.concat $ [formatDataTime t, "\t",  B.concat s]
+
+printLogProtocolError s = printLog ["unified protocol error for\r\n", ">>>\r\n", s, "<<<"]
 
 
 data Msg = MsgFlush | MsgData !LB.ListBuf | MsgDataTo {-# UNPACK #-} !Int !LB.ListBuf
 
-data RCmd = RCmd !ByteString ![Int] -- Имя команды и на какие сервера послали конкретные данные 
+data RCmd = RCmd !ByteString ![Int] -- Имя команды и на какие сервера послали конкретные данные
 
 
 warn = B.hPutStrLn stderr . B.concat
@@ -76,7 +95,7 @@ client_reader c_sock s_count set_cmd toServersMVar toClientMVar fquit = parseWit
 		s_send s_addr s = putMVar toServersMVar (MsgDataTo s_addr s)
 
 		rf (Left  ("", e)) = fquit
-		rf (Left  (t, e))  = c_send $ LB.pack ["-ERR unified protocol error\r\n"]
+		rf (Left  (t, e))  = printLogProtocolError t >> (c_send $ LB.pack ["-ERR unified protocol error\r\n"])
 		rf (Right (t, r))  = case r of
 			Just as@((Just c):args) -> do
 				let cmd = B.pack $ map toUpper (B.unpack c)
@@ -222,7 +241,7 @@ server_responses get_cmd sss toClientMVar fquit = do
 							parseWithNext server_parser pr s_recv >>= rf
 								where
 								rf (Left  ("", e)) = fquit >> return (new_sss, rs)
-								rf (Left  (t, e))  = c_send (LB.pack ["-ERR unified protocol error\r\n"]) >> fquit >> return (new_sss, rs)
+								rf (Left  (t, e))  = printLogProtocolError t >> c_send (LB.pack ["-ERR unified protocol error\r\n"]) >> fquit >> return (new_sss, rs)
 								rf (Right (t, r))  = _read_loop old_sss ((s_addr, s_sock, s_recv, t):new_sss) ((s_addr,r):rs)
 
 						False ->    _read_loop old_sss ((s_addr, s_sock, s_recv, pr):new_sss) rs
