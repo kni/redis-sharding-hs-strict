@@ -99,6 +99,15 @@ Tuning
       This is an experimental feature, and may or may not be useful. 
 
 
+Bug
+-----
+
+Do not use too long keys (and values) or the excessive number of keys in one command (>100Kb).
+GHC threaded runtime contains an error that causes data loss of a socket status that it's ready for write.
+Not-threaded runtime does not have the above mentioned bug but it is slower and uses the system select call instead of using kevent or epoll.
+Tests showed that this error is present in GHC 7.8.[34] and 8.0.1.
+
+
 Resharding
 ----------
 
