@@ -39,6 +39,11 @@ Perl version           http://github.com/kni/redis-sharding
 
 Strict Haskell version is the best of them all!
 
+Strict Haskell version have two subversion: 1 is on base Attoparsec (master); 2 is on base Sparcl (branch sparcl).
+Sparcl - Small Parser Combinator Library for Standard ML (MLton, Poly/ML), Haskell: https://github.com/kni/sparcl .
+Sparcl version of Redis Sharding faster on 7-9% than Attoparsec version.
+
+
 Nota bene
 ---------
 
@@ -92,6 +97,15 @@ Tuning
 -A  - Set the allocation area size used by the garbage collector
 -qa - Use the OS's affinity facilities to try to pin OS threads to CPU cores.
       This is an experimental feature, and may or may not be useful. 
+
+
+Bug
+-----
+
+Do not use too long keys (and values) or the excessive number of keys in one command (>100Kb).
+GHC threaded runtime contains an error that causes data loss of a socket status that it's ready for write.
+Not-threaded runtime does not have the above mentioned bug but it is slower and uses the system select call instead of using kevent or epoll.
+Tests showed that this error is present in GHC 7.8.[34] and 8.0.1.
 
 
 Resharding
