@@ -43,6 +43,8 @@ Strict Haskell version have two subversion: 1 is on base Attoparsec (master); 2 
 Sparcl - Small Parser Combinator Library for Standard ML (MLton, Poly/ML), Haskell: https://github.com/kni/sparcl .
 Sparcl version of Redis Sharding faster on 7-9% than Attoparsec version.
 
+Standard ML version (https://github.com/kni/redis-sharding-sml) is even more productive.
+
 
 Nota bene
 ---------
