@@ -95,7 +95,7 @@ client_reader c_sock s_count set_cmd toServersMVar toClientMVar fquit = parseWit
 		s_send s_addr s = putMVar toServersMVar (MsgDataTo s_addr s)
 
 		rf (Left  ("", e)) = fquit
-		rf (Left  (t, e))  = printLogProtocolError t >> (c_send $ LB.pack ["-ERR unified protocol error\r\n"])
+		rf (Left  (t, e))  = printLogProtocolError t >> (c_send $ LB.pack ["-ERR unified protocol error\r\n"]) >> fquit
 		rf (Right (t, r))  = case r of
 			Just as@((Just c):args) -> do
 				let cmd = B.pack $ map toUpper (B.unpack c)

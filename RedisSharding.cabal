@@ -1,11 +1,11 @@
 Name:          RedisSharding
-Version:       1.0
+Version:       1.1
 Author:        Nick Kostitya
 License:       BSD3
 license-file:  LICENSE
 Build-type:    Simple
 Cabal-version: >=1.2
-Tested-with:   GHC==7.6.1
+Tested-with:   GHC==7.6, GHC==7.8, GHC==7.10
 
 Library
   build-depends:
@@ -15,7 +15,7 @@ Library
     network    >= 2.3,
     digest,
     time,
-    attoparsec,
+    attoparsec >= 0.10,
     old-locale
 
 Executable     redis_sharding

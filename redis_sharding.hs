@@ -24,7 +24,7 @@ import Network.Socket.ByteString (recv)
 import RedisSharding
 
 
-version = "1.0"
+version = "1.1"
 
 
 options :: [OptDescr (String, String)]
